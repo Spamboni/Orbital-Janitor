@@ -1,16 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbital Janitor - Physics Game</title>
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <!--
+    viewport: width=device-width keeps layout correct on phones.
+    user-scalable=no and maximum-scale=1 prevent the double-tap zoom
+    that interferes with game taps. Remove these if you need accessibility zoom.
+  -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- PWA / home-screen icon hooks (replace icons later) -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+
+  <title>Orbital Janitor</title>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div id="app"></div>
-    <script src="js/physics.js"></script>
-    <script src="js/objects.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/ui.js"></script>
+
+<div id="game-wrapper">
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <div id="header">
+    <div id="title">ORBITAL JANITOR</div>
+
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span class="hud-value" id="score">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Collisions</span>
+        <span class="hud-value" id="collisions">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Level</span>
+        <span class="hud-value" id="level">1</span>
+      </div>
+      <button id="btn-reset">⟳ RESET</button>
+    </div>
+  </div>
+
+  <!-- ── Canvas ─────────────────────────────────────────────────── -->
+  <div id="canvas-wrap">
+    <canvas id="canvas" width="800" height="560"></canvas>
+
+    <!-- Win overlay sits over the canvas, hidden by default -->
+    <div id="message-overlay">
+      <div id="message-text">DEBRIS CLEARED!</div>
+      <div id="message-sub"></div>
+    </div>
+  </div>
+
+  <!-- ── Instructions ───────────────────────────────────────────── -->
+  <div id="instructions">
+    <span class="inst-item">🖱 <span class="highlight">DRAG</span> objects to launch them</span>
+    <span class="inst-item">🎯 Land <span class="highlight">BLUE DEBRIS</span> in the <span class="highlight">RED ZONE</span></span>
+    <span class="inst-item">⚡ Bounce off obstacles for chain reactions</span>
+    <span class="inst-item">🏆 Fewer collisions = <span class="highlight">BONUS SCORE</span></span>
+  </div>
+
+</div><!-- /#game-wrapper -->
+
+<!--
+  Script load order matters — each file adds to the global scope and
+  the next file depends on the previous one being available.
+
+  physics.js   → exposes: Physics (namespace)
+  objects.js   → exposes: PhysObj, StaticObstacle, TargetZone, TargetBarrier
+  ui.js        → exposes: UI  (depends on Physics)
+  game.js      → exposes: Game (depends on Physics, GameObjects, UI)
+-->
+<script src="js/physics.js"></script>
+<script src="js/objects.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+
+<!-- Bootstrap -->
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('canvas');
+    // Kick off the game — the Game constructor starts the loop
+    window._game = new Game(canvas);
+  });
+</script>
+
 </body>
 </html>
