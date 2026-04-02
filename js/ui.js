@@ -17,17 +17,25 @@ class UI {
 
     var self = this;
     this._btnReset.addEventListener('click', function() { opts.onReset(); });
-    this._settingsBtn.addEventListener('click', function(e) {
+    this._btnReset.addEventListener('touchend', function(e){ e.preventDefault(); opts.onReset(); });
+
+    function openSettings(e) {
+      e.preventDefault();
       e.stopPropagation();
       self._toggleSettings();
-    });
+    }
+    this._settingsBtn.addEventListener('click',    openSettings);
+    this._settingsBtn.addEventListener('touchend', openSettings);
 
     // Close panel when tapping outside
-    document.addEventListener('click', function(e) {
+    function closeIfOutside(e) {
+      if (!self._settingsPanel.classList.contains('open')) return;
       if (!self._settingsPanel.contains(e.target) && e.target !== self._settingsBtn) {
         self._settingsPanel.classList.remove('open');
       }
-    });
+    }
+    document.addEventListener('click',      closeIfOutside);
+    document.addEventListener('touchstart', closeIfOutside, { passive: true });
 
     this._bindSliders();
     this.canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });

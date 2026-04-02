@@ -136,8 +136,13 @@ class Game {
     }
 
     function onDown(e) {
-      // Don't steal taps meant for the settings UI
-      if (e.target !== canvas) return;
+      // Don't intercept taps on the HUD overlay (buttons, settings panel)
+      var tag = e.target ? e.target.tagName : '';
+      if (tag === 'BUTTON' || tag === 'INPUT' || e.target === document.getElementById('settings-panel') ||
+          (e.target && e.target.closest && e.target.closest('#hud-overlay')) ||
+          (e.target && e.target.closest && e.target.closest('#settings-panel'))) {
+        return;
+      }
       e.preventDefault();
       if (window.Sound) Sound.getCtx(); // unlock audio on first touch
 
@@ -169,7 +174,6 @@ class Game {
     }
 
     function onMove(e) {
-      if (e.target !== canvas && !self.sling) return;
       e.preventDefault();
       if (!self.sling) return;
       var pos = getPos(e);
@@ -231,9 +235,8 @@ class Game {
         Physics.stepObject(obj, this.W, floorY, this.sparks, Settings);
       }
 
-      // Clear inFlight once ball is resting on floor so it can be grabbed again
-      if (obj.inFlight && Math.abs(obj.vy) < 0.8 && Math.abs(obj.vx) < 0.8 &&
-          obj.y >= floorY - obj.r - 2) {
+      // Reset inFlight once ball slows down enough to be grabbed again
+      if (obj.inFlight && Math.abs(obj.vy) < 1.2 && Math.abs(obj.vx) < 1.2) {
         obj.inFlight = false;
       }
     }
@@ -261,8 +264,14 @@ class Game {
       Physics.bounceOffBarrier(this.objects[i], this.barrier);
     }
 
-    if (!this.won && this.target.overlaps(this.objects[0])) {
-      this._triggerWin();
+    // Win check — debris (index 0) must enter target zone
+    if (!this.won) {
+      var debris = this.objects[0];
+      var tdx = debris.x - this.target.x;
+      var tdy = debris.y - this.target.y;
+      if (Math.hypot(tdx, tdy) < this.target.r + debris.r) {
+        this._triggerWin();
+      }
     }
 
     if (this.won && this.winTimer > 0) {
