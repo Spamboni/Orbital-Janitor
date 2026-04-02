@@ -12,6 +12,11 @@ html, body {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
 }
 
+/* Re-enable touch on interactive elements */
+button, input[type=range], #settings-panel, #hud-overlay {
+  touch-action: manipulation;
+}
+
 #canvas {
   position: fixed;
   top: 0; left: 0;
