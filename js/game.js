@@ -3,18 +3,18 @@
 const LEVELS = [
   {
     objects: [
-      { x: 0.18, y: 0.82, r: 15, mass: 2.0, color: '#1040a0', glow: '#4488ff', label: 'DBR' },
-      { x: 0.50, y: 0.88, r: 12, mass: 1.5, color: '#7730c0', glow: '#cc44ff', label: 'OBJ' },
-      { x: 0.78, y: 0.85, r: 10, mass: 1.0, color: '#804020', glow: '#ff8844', label: 'SML' },
+      { x: 0.18, y: 0.0, r: 15, mass: 2.0, color: '#1040a0', glow: '#4488ff', label: 'DBR' },
+      { x: 0.50, y: 0.0, r: 12, mass: 1.5, color: '#7730c0', glow: '#cc44ff', label: 'OBJ' },
+      { x: 0.78, y: 0.0, r: 10, mass: 1.0, color: '#804020', glow: '#ff8844', label: 'SML' },
     ],
     obstacles: [
-      { rx: 0.28, ry: 0.55, shape: 'triangle', size: 28 },
-      { rx: 0.70, ry: 0.45, shape: 'square',   size: 24 },
-      { rx: 0.50, ry: 0.35, shape: 'hexagon',  size: 30 },
+      { rx: 0.28, ry: 0.52, shape: 'triangle', size: 28 },
+      { rx: 0.70, ry: 0.42, shape: 'square',   size: 24 },
+      { rx: 0.50, ry: 0.32, shape: 'hexagon',  size: 30 },
     ],
     targetRX: 0.50, targetRY: 0.08, targetR: 30,
     barrierR: 72, barrierThickness: 13, barrierGap: Math.PI * 0.25,
-    barrierGapAngle: -Math.PI / 2, // gap faces UP
+    barrierGapAngle: -Math.PI / 2,
   },
 ];
 
@@ -25,12 +25,19 @@ const NEBULA_BLOBS = [
   { rx: 0.20, ry: 0.80, r: 140, c: '#0a1530' },
 ];
 
-// How far below the ball the finger must be to start a slingshot
 const SLING_MIN_OFFSET = 10;
-// Max pull distance (pixels) for full power
 const SLING_MAX_PULL   = 180;
-// Power scale
 const SLING_POWER      = 0.38;
+
+// Floor sits this many px above the bottom edge — gives drag room
+const FLOOR_MARGIN = 140;
+
+// Default settings (all multipliers, 1.0 = 100%)
+var Settings = {
+  velocityMult: 1.0,   // 1.0 – 3.0
+  bounceMult:   1.0,   // 0.3 – 2.0
+  gravityMult:  1.0,   // 0.3 – 2.0
+};
 
 class Game {
   constructor(canvas) {
@@ -51,17 +58,15 @@ class Game {
     this.sparks    = [];
     this.target    = null;
     this.barrier   = null;
-
-    // Slingshot drag state
-    this.sling = null; // { obj, anchorX, anchorY, pullX, pullY, active }
+    this.sling     = null;
 
     this.stars           = this._buildStars(180);
     this.nebulaOffscreen = this._buildNebulaOffscreen();
 
     this.ui = new UI({ canvas: canvas, onReset: () => this._resetRound() });
-
     this._initLevel();
     this._bindInput();
+
     this._loop = this._loop.bind(this);
     requestAnimationFrame(this._loop);
 
@@ -79,24 +84,29 @@ class Game {
     this.H = this.canvas.height;
   }
 
+  floorY() {
+    // The visual ground line — balls rest here
+    return this.H - FLOOR_MARGIN;
+  }
+
   _initLevel() {
-    var W = this.W, H = this.H;
+    var W = this.W;
+    var floorY = this.floorY();
     var def = LEVELS[this._levelIdx % LEVELS.length];
 
     this.objects = def.objects.map(function(d) {
       var x = d.x * W;
       var r = d.r;
-      // Place on floor: y = H - r - floor thickness
-      var y = H - r - 4;
+      var y = floorY - r;
       return new PhysObj(x, y, r, d.mass, d.color, d.glow, d.label);
     });
 
     this.obstacles = def.obstacles.map(function(d) {
-      return new StaticObstacle(d.rx * W, d.ry * H, d.shape, d.size);
+      return new StaticObstacle(d.rx * W, d.ry * (floorY), d.shape, d.size);
     });
 
     var tx = def.targetRX * W;
-    var ty = def.targetRY * H + def.targetR + def.barrierR;
+    var ty = def.targetRY * floorY + def.targetR + def.barrierR;
     this.target  = new TargetZone(tx, ty, def.targetR);
     this.barrier = new TargetBarrier(tx, ty, def.barrierR, def.barrierThickness, def.barrierGap, def.barrierGapAngle);
 
@@ -113,10 +123,10 @@ class Game {
 
   _resetRound() { this._initLevel(); }
 
-  // ── Input (slingshot) ──────────────────────────────────────────────────────
+  // ── Input ──────────────────────────────────────────────────────────────────
 
   _bindInput() {
-    var self = this;
+    var self   = this;
     var canvas = this.canvas;
 
     function getPos(e) {
@@ -126,47 +136,48 @@ class Game {
     }
 
     function onDown(e) {
+      // Don't steal taps meant for the settings UI
+      if (e.target !== canvas) return;
       e.preventDefault();
+      if (window.Sound) Sound.getCtx(); // unlock audio on first touch
+
       var pos = getPos(e);
-      // Find a ball that the finger is reasonably near horizontally
-      // and the finger is AT or BELOW the ball center
       var best = null, bestDist = 9999;
+
       for (var i = 0; i < self.objects.length; i++) {
         var obj = self.objects[i];
-        if (obj.inFlight) continue; // already launched, can't grab
         var dx = pos.x - obj.x;
         var dy = pos.y - obj.y;
-        var horizDist = Math.abs(dx);
-        // finger must be within 2.5x radius horizontally
-        // and at or below the ball (dy >= -r)
-        if (horizDist < obj.r * 2.5 && dy >= -obj.r) {
+        // Allow grab if finger is within 2.5r horizontally AND at or below the ball
+        if (Math.abs(dx) < obj.r * 2.5 && dy >= -obj.r) {
           var dist = Math.hypot(dx, dy);
           if (dist < bestDist) { bestDist = dist; best = obj; }
         }
       }
+
       if (best) {
+        best.vx = 0; best.vy = 0;
+        best.pinned = true;
         self.sling = {
           obj:     best,
           anchorX: best.x,
           anchorY: best.y,
           pullX:   pos.x,
           pullY:   pos.y,
-          active:  true,
         };
-        best.vx = 0; best.vy = 0;
-        best.pinned = true; // held in place
       }
     }
 
     function onMove(e) {
+      if (e.target !== canvas && !self.sling) return;
       e.preventDefault();
       if (!self.sling) return;
       var pos = getPos(e);
       self.sling.pullX = pos.x;
       self.sling.pullY = pos.y;
-      // Stretch sound scaled by pull power
-      var dx = self.sling.anchorX - pos.x;
-      var dy = self.sling.anchorY - pos.y;
+
+      var dx   = self.sling.anchorX - pos.x;
+      var dy   = self.sling.anchorY - pos.y;
       var dist = Math.hypot(dx, dy);
       if (dist > SLING_MIN_OFFSET && window.Sound) {
         Sound.stretch(Math.min(dist, SLING_MAX_PULL) / SLING_MAX_PULL);
@@ -176,19 +187,18 @@ class Game {
     function onUp(e) {
       e.preventDefault();
       if (!self.sling) return;
-      var s = self.sling;
+      var s   = self.sling;
       var obj = s.obj;
 
-      // Vector from pull point to anchor (ball) = launch direction
-      var dx = s.anchorX - s.pullX;
-      var dy = s.anchorY - s.pullY;
+      var dx   = s.anchorX - s.pullX;
+      var dy   = s.anchorY - s.pullY;
       var dist = Math.hypot(dx, dy);
 
       if (dist > SLING_MIN_OFFSET) {
-        var power = Math.min(dist, SLING_MAX_PULL) * SLING_POWER;
+        var rawPower = Math.min(dist, SLING_MAX_PULL) * SLING_POWER;
+        var power    = rawPower * Settings.velocityMult;
         obj.vx = (dx / dist) * power;
         obj.vy = (dy / dist) * power;
-        obj.inFlight = true;
         if (window.Sound) Sound.snap(Math.min(dist, SLING_MAX_PULL) / SLING_MAX_PULL);
       }
 
@@ -212,17 +222,26 @@ class Game {
   _loop() {
     this.frame++;
     var i, j;
+    var floorY = this.floorY();
 
+    // Step physics — pass floorY as the effective bottom wall
     for (i = 0; i < this.objects.length; i++) {
       var obj = this.objects[i];
       if (!obj.pinned) {
-        Physics.stepObject(obj, this.W, this.H, this.sparks);
+        Physics.stepObject(obj, this.W, floorY, this.sparks, Settings);
+      }
+
+      // Clear inFlight once ball is resting on floor so it can be grabbed again
+      if (obj.inFlight && Math.abs(obj.vy) < 0.8 && Math.abs(obj.vx) < 0.8 &&
+          obj.y >= floorY - obj.r - 2) {
+        obj.inFlight = false;
       }
     }
+
     this.target.update();
     Physics.stepSparks(this.sparks);
 
-    // Object-object collisions
+    // Object–object
     for (i = 0; i < this.objects.length; i++) {
       for (j = i + 1; j < this.objects.length; j++) {
         var hit = Physics.resolveCollision(this.objects[i], this.objects[j], this.sparks);
@@ -230,19 +249,18 @@ class Game {
       }
     }
 
-    // Object-obstacle collisions
+    // Object–obstacle
     for (i = 0; i < this.obstacles.length; i++) {
       for (j = 0; j < this.objects.length; j++) {
         Physics.bounceOffObstacle(this.objects[j], this.obstacles[i], this.sparks);
       }
     }
 
-    // Object-barrier
+    // Object–barrier
     for (i = 0; i < this.objects.length; i++) {
       Physics.bounceOffBarrier(this.objects[i], this.barrier);
     }
 
-    // Win check — only debris (index 0)
     if (!this.won && this.target.overlaps(this.objects[0])) {
       this._triggerWin();
     }
@@ -277,36 +295,49 @@ class Game {
   // ── Rendering ──────────────────────────────────────────────────────────────
 
   _draw() {
-    var ctx = this.ctx, W = this.W, H = this.H;
+    var ctx    = this.ctx;
+    var W      = this.W;
+    var H      = this.H;
+    var floorY = this.floorY();
 
     ctx.fillStyle = '#030a18';
     ctx.fillRect(0, 0, W, H);
     ctx.drawImage(this.nebulaOffscreen, 0, 0);
     this._drawGrid();
     this._drawStars();
-    this._drawFloor();
+    this._drawFloor(floorY);
 
     this.barrier.draw(ctx);
     this.target.draw(ctx);
-
     for (var i = 0; i < this.obstacles.length; i++) this.obstacles[i].draw(ctx, this.frame);
     for (var j = 0; j < this.objects.length;   j++) this.objects[j].draw(ctx);
 
-    // Draw slingshot indicator
     if (this.sling) this._drawSling();
-
     this._drawSparks();
   }
 
-  _drawFloor() {
+  _drawFloor(floorY) {
     var ctx = this.ctx, W = this.W, H = this.H;
-    // Glowing floor line
+
+    // Dim zone below the floor (the drag area)
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, floorY, W, H - floorY);
+
+    // Glowing ground line
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,180,255,0.18)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,180,255,0.55)';
+    ctx.lineWidth   = 2;
     ctx.shadowColor = '#00aaff';
-    ctx.shadowBlur  = 8;
-    ctx.beginPath(); ctx.moveTo(0, H - 4); ctx.lineTo(W, H - 4); ctx.stroke();
+    ctx.shadowBlur  = 10;
+    ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
+    ctx.shadowBlur  = 0;
+
+    // "DRAG ZONE" label
+    ctx.fillStyle    = 'rgba(0,140,200,0.25)';
+    ctx.font         = "10px 'Share Tech Mono', monospace";
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('▼  PULL DOWN TO AIM  ▼', W / 2, floorY + 8);
     ctx.restore();
   }
 
@@ -314,62 +345,47 @@ class Game {
     var ctx  = this.ctx;
     var s    = this.sling;
     var obj  = s.obj;
-
     var dx   = s.anchorX - s.pullX;
     var dy   = s.anchorY - s.pullY;
     var dist = Math.hypot(dx, dy);
-
     if (dist < SLING_MIN_OFFSET) return;
 
     var power = Math.min(dist, SLING_MAX_PULL) / SLING_MAX_PULL;
 
-    // Band lines from ball to finger
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,200,60,' + (0.4 + power * 0.5) + ')';
+
+    // Band lines
+    ctx.strokeStyle = 'rgba(255,200,60,' + (0.45 + power * 0.5) + ')';
     ctx.lineWidth   = 2.5;
-    ctx.setLineDash([]);
     ctx.shadowColor = '#ffcc30';
     ctx.shadowBlur  = 8;
-
-    // Left band
-    ctx.beginPath();
-    ctx.moveTo(obj.x - obj.r * 0.5, obj.y);
-    ctx.lineTo(s.pullX, s.pullY);
-    ctx.stroke();
-
-    // Right band
-    ctx.beginPath();
-    ctx.moveTo(obj.x + obj.r * 0.5, obj.y);
-    ctx.lineTo(s.pullX, s.pullY);
-    ctx.stroke();
-
+    ctx.beginPath(); ctx.moveTo(obj.x - obj.r * 0.5, obj.y); ctx.lineTo(s.pullX, s.pullY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(obj.x + obj.r * 0.5, obj.y); ctx.lineTo(s.pullX, s.pullY); ctx.stroke();
     ctx.shadowBlur = 0;
 
     // Trajectory dots
-    var vx  = (dx / dist) * Math.min(dist, SLING_MAX_PULL) * SLING_POWER;
-    var vy  = (dy / dist) * Math.min(dist, SLING_MAX_PULL) * SLING_POWER;
+    var vx  = (dx / dist) * Math.min(dist, SLING_MAX_PULL) * SLING_POWER * Settings.velocityMult;
+    var vy  = (dy / dist) * Math.min(dist, SLING_MAX_PULL) * SLING_POWER * Settings.velocityMult;
     var px  = obj.x, py = obj.y;
-    var tvx = vx, tvy = vy;
+    var gravity = Physics.PHYSICS.GRAVITY * Settings.gravityMult;
+    var friction = Physics.PHYSICS.FRICTION;
 
-    for (var i = 0; i < 28; i++) {
-      tvy += Physics.PHYSICS.GRAVITY;
-      tvx *= Physics.PHYSICS.FRICTION;
-      tvy *= Physics.PHYSICS.FRICTION;
-      px  += tvx; py += tvy;
-      if (px < 0 || px > this.W || py < 0) break;
-      if (py > this.H) break;
-      var alpha = (1 - i / 28) * power * 0.7;
-      var dotR  = (1 - i / 28) * 4 * power + 1;
+    for (var i = 0; i < 32; i++) {
+      vy += gravity; vx *= friction; vy *= friction;
+      px += vx; py += vy;
+      if (px < 0 || px > this.W || py < 0 || py > this.floorY()) break;
+      var alpha = (1 - i / 32) * power * 0.75;
+      var dotR  = (1 - i / 32) * 4.5 * power + 1;
       ctx.beginPath();
       ctx.arc(px, py, dotR, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,220,80,' + alpha + ')';
       ctx.fill();
     }
 
-    // Finger pull circle
+    // Finger circle
     ctx.beginPath();
-    ctx.arc(s.pullX, s.pullY, 10 + power * 6, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,200,60,' + (0.3 + power * 0.5) + ')';
+    ctx.arc(s.pullX, s.pullY, 10 + power * 7, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,200,60,' + (0.35 + power * 0.5) + ')';
     ctx.lineWidth   = 2;
     ctx.stroke();
 
@@ -419,8 +435,7 @@ class Game {
       var b = NEBULA_BLOBS[i];
       var bx = b.rx * this.W, by = b.ry * this.H;
       var g = nc.createRadialGradient(bx, by, 0, bx, by, b.r);
-      g.addColorStop(0, b.c);
-      g.addColorStop(1, 'transparent');
+      g.addColorStop(0, b.c); g.addColorStop(1, 'transparent');
       nc.fillStyle = g;
       nc.beginPath(); nc.arc(bx, by, b.r, 0, Math.PI * 2); nc.fill();
     }
@@ -430,16 +445,11 @@ class Game {
   _buildStars(n) {
     var out = [];
     for (var i = 0; i < n; i++) {
-      out.push({
-        x: Math.random() * this.W,
-        y: Math.random() * this.H,
-        r: Math.random() * 1.3,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.008 + Math.random() * 0.018,
-      });
+      out.push({ x: Math.random()*this.W, y: Math.random()*this.H, r: Math.random()*1.3, phase: Math.random()*Math.PI*2, speed: 0.008+Math.random()*0.018 });
     }
     return out;
   }
 }
 
 window.Game = Game;
+window.Settings = Settings;

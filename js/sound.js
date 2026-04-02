@@ -115,8 +115,8 @@ var Sound = (function() {
       filterType: 'bandpass',
       filterFreq: 200 + power * 600,
       filterQ: 8,
-      gain: 0.04 + power * 0.06,
-      duration: 0.06,
+      gain: 0.12 + power * 0.18,
+      duration: 0.07,
     });
   }
 

@@ -22,10 +22,14 @@ const PHYSICS = Object.freeze({
  * @param {number}  H   canvas height
  * @param {Spark[]} sparks  array to push wall-hit sparks into
  */
-function stepObject(obj, W, H, sparks) {
+function stepObject(obj, W, H, sparks, settings) {
   if (obj.dragging) return;
+  var s = settings || {};
+  var gravMult  = s.gravityMult  || 1.0;
+  var bncMult   = s.bounceMult   || 1.0;
+  var bounce    = Math.min(PHYSICS.BOUNCE * bncMult, 1.0);
 
-  obj.vy += PHYSICS.GRAVITY;
+  obj.vy += PHYSICS.GRAVITY * gravMult;
   obj.vx *= PHYSICS.FRICTION;
   obj.vy *= PHYSICS.FRICTION;
 
@@ -36,27 +40,27 @@ function stepObject(obj, W, H, sparks) {
   if (obj.x - obj.r < 0) {
     obj.x = obj.r;
     var spd1 = Math.abs(obj.vx);
-    obj.vx = Math.abs(obj.vx) * PHYSICS.BOUNCE;
+    obj.vx = Math.abs(obj.vx) * bounce;
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 5);
     if (spd1 > 1.5 && window.Sound) Sound.wallClick(spd1);
   }
   if (obj.x + obj.r > W) {
     obj.x = W - obj.r;
     var spd2 = Math.abs(obj.vx);
-    obj.vx = -Math.abs(obj.vx) * PHYSICS.BOUNCE;
+    obj.vx = -Math.abs(obj.vx) * bounce;
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 5);
     if (spd2 > 1.5 && window.Sound) Sound.wallClick(spd2);
   }
   if (obj.y - obj.r < 0) {
     obj.y = obj.r;
     var spd3 = Math.abs(obj.vy);
-    obj.vy = Math.abs(obj.vy) * PHYSICS.BOUNCE;
+    obj.vy = Math.abs(obj.vy) * bounce;
     if (spd3 > 1.5 && window.Sound) Sound.wallClick(spd3);
   }
   if (obj.y + obj.r > H) {
     obj.y = H - obj.r;
     var spd4 = Math.abs(obj.vy);
-    obj.vy = -Math.abs(obj.vy) * PHYSICS.BOUNCE;
+    obj.vy = -Math.abs(obj.vy) * bounce;
     if (spd4 > 1.5) {
       spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 4);
       if (window.Sound) Sound.wallClick(spd4);
