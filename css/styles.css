@@ -9,9 +9,9 @@ html, body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
 }
 
-/* Canvas fills entire screen */
 #canvas {
   position: fixed;
   top: 0; left: 0;
@@ -19,7 +19,7 @@ html, body {
   display: block;
 }
 
-/* HUD sits on top */
+/* ── HUD ──────────────────────────────────────────────────────────────── */
 #hud-overlay {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -28,24 +28,23 @@ html, body {
   justify-content: space-between;
   padding: 10px 14px 8px;
   z-index: 10;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%);
   pointer-events: none;
 }
 
 #title {
   font-family: 'Orbitron', sans-serif;
   font-weight: 900;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 3px;
   color: #00e5ff;
   text-shadow: 0 0 8px #00e5ff, 0 0 20px #00e5ff44;
-  pointer-events: none;
 }
 
 #hud {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   pointer-events: all;
 }
 
@@ -57,7 +56,6 @@ html, body {
 }
 
 .hud-label {
-  font-family: 'Share Tech Mono', monospace;
   font-size: 7px;
   color: #334466;
   letter-spacing: 1px;
@@ -66,31 +64,136 @@ html, body {
 .hud-value {
   font-family: 'Orbitron', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   color: #00e5ff;
   text-shadow: 0 0 8px #00e5ff88;
   min-width: 2ch;
   text-align: center;
 }
 
-#btn-reset {
-  font-family: 'Orbitron', sans-serif;
+#btn-reset, #btn-settings {
   font-size: 16px;
-  color: #ff3060;
+  color: #00e5ff;
   background: transparent;
-  border: 1px solid #ff306066;
-  width: 34px; height: 34px;
+  border: 1px solid #00e5ff44;
+  width: 32px; height: 32px;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 8px #ff306033;
   transition: all 0.15s;
   pointer-events: all;
   -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; justify-content: center;
 }
 
-#btn-reset:active { background: #ff306030; box-shadow: 0 0 16px #ff3060aa; }
+#btn-reset { color: #ff3060; border-color: #ff306066; }
+#btn-reset:active  { background: #ff306030; box-shadow: 0 0 12px #ff3060aa; }
+#btn-settings:active { background: #00e5ff20; box-shadow: 0 0 12px #00e5ffaa; }
 
-/* Win overlay */
+/* ── Settings panel ───────────────────────────────────────────────────── */
+#settings-panel {
+  position: fixed;
+  top: 56px;
+  right: 10px;
+  width: 260px;
+  background: rgba(5, 12, 30, 0.96);
+  border: 1px solid rgba(0,200,255,0.25);
+  border-radius: 8px;
+  padding: 16px;
+  z-index: 30;
+  box-shadow: 0 0 30px rgba(0,180,255,0.15);
+
+  /* Hidden by default */
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#settings-panel.open {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+}
+
+.settings-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #00e5ff;
+  margin-bottom: 16px;
+  text-align: center;
+  text-shadow: 0 0 8px #00e5ff66;
+}
+
+.setting-row {
+  margin-bottom: 14px;
+}
+
+.setting-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #5588aa;
+  margin-bottom: 6px;
+}
+
+.setting-val {
+  color: #00e5ff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0,150,200,0.25);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 8px #00e5ff88;
+  cursor: pointer;
+}
+
+input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 8px #00e5ff88;
+  border: none;
+  cursor: pointer;
+}
+
+.settings-reset-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #ff3060;
+  background: transparent;
+  border: 1px solid #ff306055;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-reset-btn:active {
+  background: #ff306020;
+  box-shadow: 0 0 10px #ff306066;
+}
+
+/* ── Win overlay ──────────────────────────────────────────────────────── */
 #message-overlay {
   position: fixed;
   inset: 0;
@@ -123,18 +226,4 @@ html, body {
   color: #aaffcc;
   margin-top: 10px;
   letter-spacing: 2px;
-}
-
-/* Hint bar */
-#hint {
-  position: fixed;
-  bottom: 10px;
-  left: 0; right: 0;
-  text-align: center;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  color: #223344;
-  letter-spacing: 1px;
-  pointer-events: none;
-  z-index: 10;
 }
