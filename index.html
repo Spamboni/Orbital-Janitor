@@ -12,7 +12,9 @@
 </head>
 <body>
 
-<!-- HUD overlaid on top of canvas -->
+<canvas id="canvas"></canvas>
+
+<!-- HUD overlay -->
 <div id="hud-overlay">
   <div id="title">ORBITAL JANITOR</div>
   <div id="hud">
@@ -28,20 +30,55 @@
       <span class="hud-label">LEVEL</span>
       <span class="hud-value" id="level">1</span>
     </div>
-    <button id="btn-reset">⟳</button>
+    <button id="btn-reset" title="Reset">⟳</button>
+    <button id="btn-settings" title="Settings">⚙</button>
   </div>
 </div>
 
-<canvas id="canvas"></canvas>
+<!-- Settings panel -->
+<div id="settings-panel">
+  <div class="settings-title">PHYSICS SETTINGS</div>
+
+  <div class="setting-row">
+    <div class="setting-label">
+      <span>VELOCITY</span>
+      <span class="setting-val" id="val-velocity">100%</span>
+    </div>
+    <input type="range" id="slider-velocity" min="1.0" max="3.0" step="0.05" value="1.0">
+  </div>
+
+  <div class="setting-row">
+    <div class="setting-label">
+      <span>BOUNCINESS</span>
+      <span class="setting-val" id="val-bounce">100%</span>
+    </div>
+    <input type="range" id="slider-bounce" min="0.3" max="2.0" step="0.05" value="1.0">
+  </div>
+
+  <div class="setting-row">
+    <div class="setting-label">
+      <span>GRAVITY</span>
+      <span class="setting-val" id="val-gravity">100%</span>
+    </div>
+    <input type="range" id="slider-gravity" min="0.3" max="2.0" step="0.05" value="1.0">
+  </div>
+
+  <button class="settings-reset-btn" onclick="
+    document.getElementById('slider-velocity').value = 1.0;
+    document.getElementById('slider-bounce').value   = 1.0;
+    document.getElementById('slider-gravity').value  = 1.0;
+    if(window.Settings){ Settings.velocityMult=1; Settings.bounceMult=1; Settings.gravityMult=1; }
+    document.getElementById('val-velocity').textContent = '100%';
+    document.getElementById('val-bounce').textContent   = '100%';
+    document.getElementById('val-gravity').textContent  = '100%';
+  ">RESET DEFAULTS</button>
+</div>
 
 <!-- Win overlay -->
 <div id="message-overlay">
   <div id="message-text">DEBRIS CLEARED!</div>
   <div id="message-sub"></div>
 </div>
-
-<!-- Hint bar at very bottom -->
-<div id="hint">Pull DOWN below a ball to aim · Release to launch</div>
 
 <script src="js/sound.js"></script>
 <script src="js/physics.js"></script>
@@ -50,7 +87,6 @@
 <script src="js/game.js"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function() {
-    // Unlock AudioContext on first touch (required by mobile browsers)
     document.body.addEventListener('touchstart', function unlock() {
       if (window.Sound) Sound.getCtx();
       document.body.removeEventListener('touchstart', unlock);
