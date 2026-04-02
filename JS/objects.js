@@ -4,8 +4,6 @@
  * All physics / mutation is handled in physics.js.
  */
 
-'use strict';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function lightenHex(hex, amt) {
@@ -328,6 +326,8 @@ class TargetBarrier {
   }
 }
 
-// ── Exports ───────────────────────────────────────────────────────────────────
-
-const GameObjects = { PhysObj, StaticObstacle, TargetZone, TargetBarrier };
+// Pin classes to window so game.js and ui.js can reference them as globals
+window.PhysObj        = PhysObj;
+window.StaticObstacle = StaticObstacle;
+window.TargetZone     = TargetZone;
+window.TargetBarrier  = TargetBarrier;

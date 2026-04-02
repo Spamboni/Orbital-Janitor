@@ -7,8 +7,6 @@
  *  - Mouse + touch drag input → feeds into game state
  */
 
-'use strict';
-
 class UI {
   /**
    * @param {object} opts
@@ -137,3 +135,5 @@ class UI {
     this.drag = null;
   }
 }
+
+window.UI = UI;

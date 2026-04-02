@@ -4,8 +4,6 @@
  * All functions operate on plain data objects.
  */
 
-'use strict';
-
 const PHYSICS = Object.freeze({
   GRAVITY:     0.38,
   FRICTION:    0.982,
@@ -254,8 +252,8 @@ function computeFlingVelocity(history) {
   };
 }
 
-// Export for use by other modules (works as a plain global namespace too)
-const Physics = {
+// Assign to window so subsequent scripts can access it as a global
+window.Physics = {
   PHYSICS,
   stepObject,
   resolveCollision,
