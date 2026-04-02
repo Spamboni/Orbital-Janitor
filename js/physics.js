@@ -35,22 +35,32 @@ function stepObject(obj, W, H, sparks) {
   // ── wall collisions ──────────────────────────────────────────────
   if (obj.x - obj.r < 0) {
     obj.x = obj.r;
+    var spd1 = Math.abs(obj.vx);
     obj.vx = Math.abs(obj.vx) * PHYSICS.BOUNCE;
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 5);
+    if (spd1 > 1.5 && window.Sound) Sound.wallClick(spd1);
   }
   if (obj.x + obj.r > W) {
     obj.x = W - obj.r;
+    var spd2 = Math.abs(obj.vx);
     obj.vx = -Math.abs(obj.vx) * PHYSICS.BOUNCE;
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 5);
+    if (spd2 > 1.5 && window.Sound) Sound.wallClick(spd2);
   }
   if (obj.y - obj.r < 0) {
     obj.y = obj.r;
+    var spd3 = Math.abs(obj.vy);
     obj.vy = Math.abs(obj.vy) * PHYSICS.BOUNCE;
+    if (spd3 > 1.5 && window.Sound) Sound.wallClick(spd3);
   }
   if (obj.y + obj.r > H) {
     obj.y = H - obj.r;
+    var spd4 = Math.abs(obj.vy);
     obj.vy = -Math.abs(obj.vy) * PHYSICS.BOUNCE;
-    if (Math.abs(obj.vy) > 1.5) spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 4);
+    if (spd4 > 1.5) {
+      spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 4);
+      if (window.Sound) Sound.wallClick(spd4);
+    }
   }
 
   // ── motion trail ─────────────────────────────────────────────────
@@ -118,6 +128,7 @@ function resolveCollision(a, b, sparks) {
   b._contactWith.add(a);
 
   spawnSparks(sparks, (a.x + b.x) / 2, (a.y + b.y) / 2, '#ffffff', 12);
+  if (window.Sound) Sound.clink(Math.hypot(a.vx - b.vx, a.vy - b.vy));
   return true; // new contact — caller should increment collision count
 }
 
@@ -146,6 +157,7 @@ function bounceOffObstacle(obj, obs, sparks) {
     obj.vx -= 2 * dot * nx * PHYSICS.BOUNCE;
     obj.vy -= 2 * dot * ny * PHYSICS.BOUNCE;
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 6);
+    if (window.Sound) Sound.thud(Math.abs(dot));
   }
 }
 
@@ -162,10 +174,16 @@ function bounceOffBarrier(obj, barrier) {
   const dist = Math.hypot(dx, dy);
   const angle = Math.atan2(dy, dx);
 
-  // Normalize to 0..2π
-  const normAngle = (angle + Math.PI * 2) % (Math.PI * 2);
+  // Support arbitrary gap center angle (default 0 = right, -PI/2 = up)
+  const gapCenter = (barrier.gapCenterAngle !== undefined) ? barrier.gapCenterAngle : 0;
   const g = barrier.gapHalfAngle;
-  const inGap = normAngle < g || normAngle > (Math.PI * 2 - g);
+
+  // Compute angular difference from gap center
+  var diff = angle - gapCenter;
+  // Normalize to -PI..PI
+  while (diff >  Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const inGap = Math.abs(diff) < g;
   if (inGap) return;
 
   const outerR = barrier.radius + barrier.thickness + obj.r;

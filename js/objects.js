@@ -290,35 +290,32 @@ class TargetZone {
 // ── TargetBarrier ─────────────────────────────────────────────────────────────
 
 class TargetBarrier {
-  /**
-   * @param {number} x
-   * @param {number} y
-   * @param {number} radius         ring centre radius
-   * @param {number} [thickness=14] ring wall thickness
-   * @param {number} [gapHalfAngle] half-angle of opening (default ≈36°)
-   */
-  constructor(x, y, radius, thickness = 14, gapHalfAngle = Math.PI * 0.2) {
-    this.x            = x;
-    this.y            = y;
-    this.radius       = radius;
-    this.thickness    = thickness;
-    this.gapHalfAngle = gapHalfAngle;
+  constructor(x, y, radius, thickness, gapHalfAngle, gapCenterAngle) {
+    this.x              = x;
+    this.y              = y;
+    this.radius         = radius;
+    this.thickness      = thickness      !== undefined ? thickness      : 14;
+    this.gapHalfAngle   = gapHalfAngle   !== undefined ? gapHalfAngle   : Math.PI * 0.2;
+    this.gapCenterAngle = gapCenterAngle !== undefined ? gapCenterAngle : 0;
   }
 
   draw(ctx) {
-    const r   = this.radius + this.thickness / 2;
-    const g   = this.gapHalfAngle;
+    var r   = this.radius + this.thickness / 2;
+    var gc  = this.gapCenterAngle;
+    var g   = this.gapHalfAngle;
+    // Arc goes from (gap end) to (gap start) the long way around
+    var arcStart = gc + g;
+    var arcEnd   = gc - g + Math.PI * 2;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(210,80,80,0.52)';
+    ctx.strokeStyle = 'rgba(210,80,80,0.55)';
     ctx.lineWidth   = this.thickness;
     ctx.lineCap     = 'round';
-    ctx.shadowColor = 'rgba(255,60,60,0.4)';
-    ctx.shadowBlur  = 10;
+    ctx.shadowColor = 'rgba(255,60,60,0.45)';
+    ctx.shadowBlur  = 12;
 
     ctx.beginPath();
-    // Draw the arc from gap-end to gap-start going the long (closed) way
-    ctx.arc(this.x, this.y, r, g, Math.PI * 2 - g, false);
+    ctx.arc(this.x, this.y, r, arcStart, arcEnd, false);
     ctx.stroke();
 
     ctx.shadowBlur = 0;
