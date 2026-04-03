@@ -155,6 +155,26 @@ class Game {
 
   _resetRound() { this._initLevel(); }
 
+  _spawnFallingExploder() {
+    var bs  = BallSettings.exploder;
+    var r   = bs.size;
+    // Drop from a random x near the top, above visible area
+    var x   = (0.2 + Math.random() * 0.6) * this.W;
+    var obj = new PhysObj(x, -r * 3, r, r / 10, bs.color, bs.glow, 'EXP');
+    obj.type     = BALL_TYPES.EXPLODER;
+    obj.inFlight = true;  // falling counts as in-flight
+    obj.pinned   = false;
+    obj.exploded = false;
+    obj.dead     = false;
+    obj.hasStuck = false;
+    obj.hasSplit = false;
+    obj.stuckTo  = null;
+    // Give it a small random horizontal nudge
+    obj.vx = (Math.random() - 0.5) * 3;
+    obj.vy = 2;
+    this.objects.push(obj);
+  }
+
   // ── Input ──────────────────────────────────────────────────────────────────
 
   _bindInput() {
@@ -261,10 +281,17 @@ class Game {
     var i, j;
     var floorY = this.floorY();
 
-    // --- Gravity wells pull other objects ---
+    // --- Gravity wells pull/sling other objects ---
+    // Expose sparks globally so balls.js can reference them
+    window._gameSparks = this.sparks;
     for (i = 0; i < this.objects.length; i++) {
-      if (this.objects[i].type === BALL_TYPES.GRAVITY && this.objects[i].inFlight) {
-        applyGravityWell(this.objects[i], this.objects);
+      var gw = this.objects[i];
+      if (gw.type === BALL_TYPES.GRAVITY && gw.inFlight) {
+        applyGravityWell(gw, this.objects);
+      }
+      // Reset slung list when gravity well comes to rest
+      if (gw.type === BALL_TYPES.GRAVITY && !gw.inFlight && gw._slungIds && gw._slungIds.length > 0) {
+        resetGravityWell(gw);
       }
     }
 
@@ -327,6 +354,16 @@ class Game {
     // Add any split children
     for (i = 0; i < toAdd.length; i++) this.objects.push(toAdd[i]);
 
+    // --- Remove dead exploders and respawn a fresh one dropping from above ---
+    var deadIdx = -1;
+    for (i = 0; i < this.objects.length; i++) {
+      if (this.objects[i].dead) { deadIdx = i; break; }
+    }
+    if (deadIdx >= 0) {
+      this.objects.splice(deadIdx, 1);
+      this._spawnFallingExploder();
+    }
+
     // --- Object–obstacle ---
     for (i = 0; i < this.obstacles.length; i++) {
       for (j = 0; j < this.objects.length; j++) {
@@ -335,8 +372,7 @@ class Game {
         var obsHit = Physics.bounceOffObstacle(o, this.obstacles[i], this.sparks);
         if (obsHit && o.type === BALL_TYPES.EXPLODER && !o.exploded) {
           triggerExplosion(o, this.objects, this.sparks);
-        }
-      }
+        }      }
     }
 
     // --- Object–barrier ---
@@ -425,28 +461,25 @@ class Game {
   }
 
   _drawBall(obj) {
-    // Draw type indicator ring
+    if (obj.dead || obj.exploded) return;
+
+    var ctx   = this.ctx;
+    var bs    = BallSettings[obj.type] || BallSettings.bouncer;
+    var pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.06 + obj.r);
+
+    // Type indicator ring for non-bouncers
     if (obj.type !== BALL_TYPES.BOUNCER) {
-      var ctx   = this.ctx;
-      var pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.06 + obj.r);
-      var bs    = BallSettings[obj.type];
       ctx.beginPath();
       ctx.arc(obj.x, obj.y, obj.r + 4 + pulse * 2, 0, Math.PI * 2);
       ctx.strokeStyle = bs.glow + '66';
       ctx.lineWidth   = 1.5;
       ctx.stroke();
     }
-    // Draw exploded state as faded
-    if (obj.exploded) {
-      this.ctx.globalAlpha = 0.3;
-      obj.draw(this.ctx);
-      this.ctx.globalAlpha = 1.0;
-    } else {
-      obj.draw(this.ctx);
-    }
+
+    // Ball body
+    obj.draw(ctx);
+
     // Type label below ball
-    var ctx = this.ctx;
-    var bs  = BallSettings[obj.type] || BallSettings.bouncer;
     ctx.fillStyle    = bs.glow + 'aa';
     ctx.font         = "8px 'Share Tech Mono', monospace";
     ctx.textAlign    = 'center';
