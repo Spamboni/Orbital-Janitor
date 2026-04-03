@@ -148,7 +148,7 @@ function bounceOffObstacle(obj, obs, sparks) {
   const dist = Math.hypot(dx, dy);
   const minD = obs.hitRadius + obj.r;
 
-  if (dist >= minD || dist === 0) return;
+  if (dist >= minD || dist === 0) return false;
 
   const overlap = minD - dist;
   const nx = dx / dist;
@@ -163,6 +163,7 @@ function bounceOffObstacle(obj, obs, sparks) {
     spawnSparks(sparks, obj.x, obj.y, obj.glowColor, 6);
     if (window.Sound) Sound.thud(Math.abs(dot));
   }
+  return true;
 }
 
 /**
