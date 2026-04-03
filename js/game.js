@@ -9,8 +9,12 @@ var Settings = {
   gravityMult: 1.0,
 };
 
-// Ball spawn positions (relative x, staggered across floor)
-var SPAWN_X = [0.12, 0.30, 0.50, 0.68, 0.86];
+// Ball spawn positions — evenly spaced, kept away from edges
+function getSpawnX(index, total, W) {
+  var margin = 0.10;
+  var step   = (1.0 - margin * 2) / (total - 1);
+  return (margin + step * index) * W;
+}
 
 // Target definition
 var TARGET = {
@@ -38,7 +42,12 @@ class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx    = canvas.getContext('2d');
-    this.resize();
+
+    // Resize FIRST so W/H are correct before _initLevel
+    this.W = window.innerWidth;
+    this.H = window.innerHeight;
+    this.canvas.width  = this.W;
+    this.canvas.height = this.H;
 
     this.score      = 0;
     this.level      = 1;
@@ -98,6 +107,7 @@ class Game {
 
   _initLevel() {
     var self  = this;
+    var W     = this.W;
     var types = [
       BALL_TYPES.BOUNCER,
       BALL_TYPES.EXPLODER,
@@ -107,7 +117,19 @@ class Game {
     ];
 
     this.objects = types.map(function(type, i) {
-      return self._makeBall(type, SPAWN_X[i]);
+      var x  = getSpawnX(i, types.length, W);
+      var bs = BallSettings[type];
+      var r  = bs.size;
+      var y  = self.floorY() - r;
+      var obj = new PhysObj(x, y, r, r / 10, bs.color, bs.glow, bs.label.slice(0, 3));
+      obj.type     = type;
+      obj.inFlight = false;
+      obj.pinned   = false;
+      obj.exploded = false;
+      obj.hasStuck = false;
+      obj.hasSplit = false;
+      obj.stuckTo  = null;
+      return obj;
     });
 
     this.obstacles = OBSTACLES.map(function(d) {

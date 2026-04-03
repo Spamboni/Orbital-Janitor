@@ -21,7 +21,16 @@ class UI {
     this._btnReset.addEventListener('click',    doReset);
     this._btnReset.addEventListener('touchend', doReset);
 
-    function openSettings(e) { e.preventDefault(); e.stopPropagation(); self._toggleSettings(); }
+    function openSettings(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Build panel lazily so BallSettings is guaranteed to exist
+      if (!self._panelBuilt) {
+        self._buildPanel();
+        self._panelBuilt = true;
+      }
+      self._toggleSettings();
+    }
     this._settingsBtn.addEventListener('click',    openSettings);
     this._settingsBtn.addEventListener('touchend', openSettings);
 
@@ -34,7 +43,7 @@ class UI {
     document.addEventListener('click',      closeIfOutside);
     document.addEventListener('touchstart', closeIfOutside, { passive: true });
 
-    this._buildPanel();
+    this._panelBuilt = false;
     this.canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
   }
 
@@ -151,8 +160,7 @@ class UI {
       BallSettings.splitter.splitCount = 2;
       BallSettings.gravity.size  = 16; BallSettings.gravity.velocity  = 1.0; BallSettings.gravity.bounciness  = 0.7;
       BallSettings.gravity.gravRange = 140; BallSettings.gravity.gravPull = 0.6;
-      // Rebuild panel to reflect defaults
-      self._buildPanel();
+      self._buildPanel(); // rebuild to show fresh values
     }
     resetBtn.addEventListener('click',    resetDefaults);
     resetBtn.addEventListener('touchend', resetDefaults);
